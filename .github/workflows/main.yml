@@ -1,0 +1,36 @@
+name: 'Build & Release'
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - stable
+    tags:
+      - "release/*"
+  pull_request:
+
+jobs:
+  build-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2.1.1
+        with:
+          version: 0.11.0-dev.3971+6bc9c4f71
+
+      - name: Build
+        run: |
+          zig build -Doptimize=Debug -Dtarget=x86_64-windows-gnu -Dfilename-suffix=-x86_64-windows
+
+      - name: GH Release
+        uses: softprops/action-gh-release@v0.1.15
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            zig-out/bin/mv-widgets-x86_64-windows.exe
+          draft: true

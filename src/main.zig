@@ -1,117 +1,144 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const raylib = @import("raylib");
-const raygui = @import("raygui");
-const Window = @import("./Window.zig");
-const widgets = @import("./widgets.zig");
-const fonts = @import("./fonts.zig");
+const Window = @import("Window.zig");
+const widgets = @import("widgets.zig");
+const multiviewer = @import("multiviewer.zig");
+const f1_lt = @import("f1_live_timing.zig");
+
+const SharedState = struct {
+    active_state: ?f1_lt.State,
+    mutex: std.Thread.Mutex = .{},
+    should_exit: bool = false,
+
+    pub fn lock(this: *@This()) void {
+        this.mutex.lock();
+    }
+
+    pub fn unlock(this: *@This()) void {
+        this.mutex.unlock();
+    }
+
+    pub fn swapState(this: *@This(), new_state: f1_lt.State) void {
+        this.lock();
+        defer this.unlock();
+
+        if (this.active_state) |*current| {
+            current.deinit();
+        }
+
+        this.active_state = new_state;
+    }
+};
+
+var shared_state = SharedState{
+    .active_state = null,
+};
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
-    var frame_allocator = arena.allocator();
+    if (builtin.os.tag == .windows) {
+        try std.os.windows.SetConsoleCtrlHandler(&windowsHandleConsoleCtrl, true);
+    }
 
-    fonts.initMaps(gpa.allocator());
+    var widget_gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 0 }){};
+    var widget = try widget_gpa.allocator().create(widgets.Widget);
+    widget.* = .{
+        .timing_tower = try widgets.TimingTower.init(widget_gpa.allocator()),
+    };
+    
+    var ui_thread = try std.Thread.spawn(.{}, uiLoop, .{widget});
+    var update_thread = try std.Thread.spawn(.{}, stateUpdateLoop, .{});
 
-    var window = Window.init(.{
-        .x = 1800,
-        .y = 300,
-        .width = 300,
-        .height = 800,
-    });
+    ui_thread.join();
+    update_thread.join();
+}
 
-    raylib.SetConfigFlags(.{
-        // .FLAG_WINDOW_RESIZABLE = true,
-        // .FLAG_WINDOW_MAXIMIZED = true,
-        .FLAG_MSAA_4X_HINT = true,
-        .FLAG_WINDOW_ALWAYS_RUN = true,
-        // .FLAG_WINDOW_MOUSE_PASSTHROUGH = true,
-        .FLAG_WINDOW_UNDECORATED = true,
-        .FLAG_WINDOW_TOPMOST = true,
-        // .FLAG_WINDOW_TRANSPARENT = true,
-        .FLAG_WINDOW_HIGHDPI = true,
-    });
-    raylib.InitWindow(@intFromFloat(window.target_rect.width), @intFromFloat(window.target_rect.height), "Widget");
-    raylib.SetTargetFPS(60);
+fn windowsHandleConsoleCtrl(ctrl_type: u32) callconv(.C) c_int {
+    if (ctrl_type == std.os.windows.CTRL_C_EVENT) {
+        shared_state.should_exit = true;
+        return 1;
+    }
+    return 0;
+}
 
-    defer raylib.CloseWindow();
+fn stateUpdateLoop() void {
+    // stack_trace_frames >0 causes a panic during leak detection for some reason
+    var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 0 }){};
+    defer {
+        if (shared_state.active_state != null) {
+            shared_state.lock();
+            shared_state.active_state.?.deinit();
+            shared_state.active_state = null;
+            shared_state.unlock();
+        }
 
-    var is_dragging = false;
-    var is_resizing = false;
-    var mouse_origin: raylib.Vector2 = undefined;
+        shared_state.should_exit = true;
+        _ = gpa.deinit();
+    }
 
-    const decoration_size = 20;
-    const decoration_color_default = raylib.Color{ .a = 220, .r = 150, .g = 150, .b = 150 };
-    const decoration_color_hover = raylib.Color{ .a = 250, .r = 200, .g = 200, .b = 200 };
+    while (true) {
+        if (shared_state.should_exit) return;
 
-    raylib.SetWindowPosition(@intFromFloat(window.target_rect.x), @intFromFloat(window.target_rect.y));
+        const ms = 1_000_000;
+        std.time.sleep(100 * ms);
 
-    while (!raylib.WindowShouldClose()) {
-        window.updateProps();
+        var lt_state = multiviewer.fetchStateLeaky(gpa.allocator()) catch |err| {
+            std.log.err("Failed to update state: {any}", .{err});
+            continue;
+        };
+
+        shared_state.swapState(lt_state);
+    }
+}
+
+fn uiLoop(widget: *widgets.Widget) !void {
+    // stack_trace_frames >0 causes a panic during leak detection for some reason
+    var gpa = std.heap.GeneralPurposeAllocator(.{ .stack_trace_frames = 0 }){};
+    var frame_arena = std.heap.ArenaAllocator.init(gpa.allocator());
+    defer {
+        frame_arena.deinit();
+        _ = gpa.deinit();
+        shared_state.should_exit = true;
+    }
+
+    var window = try Window.init(
+        gpa.allocator(),
+        widget.initialDimensions(),
+        widget.windowTitle(),
+    );
+    defer window.deinitAndClose();
+
+    while (!raylib.WindowShouldClose() and !shared_state.should_exit) {
         raylib.BeginDrawing();
-        defer raylib.EndDrawing();
-        defer _ = arena.reset(.retain_capacity);
+        // Sync actual window position and size to target in case it was moved without our knowledge
+        window.syncTargetRect();
+
+        defer {
+            _ = frame_arena.reset(.retain_capacity);
+            // This is called last, it ensures our TargetFPS is met
+            raylib.EndDrawing();
+        }
 
         const bg_color = raylib.Color{ .r = 20, .g = 20, .b = 20, .a = 255 };
+        // const bg_color = raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 110 };
         raylib.ClearBackground(bg_color);
-        // raylib.DrawFPS(0, 0);
 
-        const mouse_pos = raylib.GetMousePosition();
-        const mouse_delta = raylib.GetMouseDelta();
+        window.handleDrag();
+        window.handleResize();
 
-        // Drag window rectangle
-
-        // Triangles for resize handle
-        var resize_triangle = window.getResizeTriangle(decoration_size);
-        const hover_over_resize = raylib.CheckCollisionPointTriangle(mouse_pos, resize_triangle.a, resize_triangle.b, resize_triangle.c);
-        const hover_over_drag = raylib.CheckCollisionPointRec(mouse_pos, window.getDragRectangle(decoration_size));
-
-        // Dragging
-        if (hover_over_drag and raylib.IsMouseButtonDown(.MOUSE_BUTTON_LEFT) and !is_dragging and !is_resizing) {
-            is_dragging = true;
-            mouse_origin = mouse_pos;
-        } else if (is_dragging and !raylib.IsMouseButtonDown(.MOUSE_BUTTON_LEFT)) {
-            is_dragging = false;
-            // window.fixWindow();
-        }
-        if (is_dragging) {
-            const target_window_pos = window.target_rect.pos().add(mouse_pos).sub(mouse_origin);
-            window.moveTo(target_window_pos);
-        }
-
-        // Resizing
-        if (hover_over_resize and raylib.IsMouseButtonDown(.MOUSE_BUTTON_LEFT) and !is_resizing and !is_dragging) {
-            is_resizing = true;
-            mouse_origin = mouse_pos;
-        } else if (is_resizing and !raylib.IsMouseButtonDown(.MOUSE_BUTTON_LEFT)) {
-            is_resizing = false;
-            // window.fixWindow();
-        }
-        if (is_resizing) {
-            var target_window_size = window.target_rect.size().add(mouse_delta);
-            window.resize(target_window_size, decoration_size, 2 * decoration_size);
-            resize_triangle = window.getResizeTriangle(decoration_size);
-        }
-
-        if (!is_resizing and !is_dragging) {
-            window.syncTargetRect();
-            // window.fixWindow();
-        }
+        // Lock the shared state to prevent memory corruption or mid-render changes
+        shared_state.lock();
+        defer shared_state.unlock();
 
         // Window contents
-        try widgets.timing_tower.render(frame_allocator, &window);
-
-        // Draw decorations
-        if (raylib.IsCursorOnScreen()) {
-            const drag_rect_color = if (hover_over_drag or is_dragging) decoration_color_hover else decoration_color_default;
-            raylib.DrawRectangleRec(window.getDragRectangle(decoration_size), drag_rect_color);
-
-            const resize_triangle_color = if (hover_over_resize or is_resizing) decoration_color_hover else decoration_color_default;
-            raylib.DrawTriangle(resize_triangle.a, resize_triangle.b, resize_triangle.c, resize_triangle_color);
+        if (shared_state.active_state != null) {
+            widget.render(frame_arena.allocator(), &window, &shared_state.active_state.?) catch |err| {
+                std.log.err("Failed to render widget: {any}", .{err});
+            };
         }
 
-        // Draw window border when hovering or actively manipulating the window
-        if ((raylib.IsCursorOnScreen() and (hover_over_resize or hover_over_drag)) or is_dragging or is_resizing) {
-            raylib.DrawRectangleLines(0, 0, window.width, window.height, decoration_color_hover);
-        }
+        window.drawDecorations();
+        window.setMouseCursor();
+        // raylib.DrawFPS(0, 0);
     }
 }

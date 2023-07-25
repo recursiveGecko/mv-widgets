@@ -4,3 +4,9 @@
 [submodule "lib/raygui"]
 	path = lib/raygui
 	url = https://github.com/ryupold/raygui.zig
+[submodule "lib/mecha"]
+	path = lib/mecha
+	url = https://github.com/Hejsil/mecha
+[submodule "lib/zig-datetime"]
+	path = lib/zig-datetime
+	url = https://github.com/frmdstryr/zig-datetime

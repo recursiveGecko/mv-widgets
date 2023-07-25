@@ -2,21 +2,44 @@ const std = @import("std");
 const raylib = @import("lib/raylib/build.zig");
 const raygui = @import("lib/raygui/build.zig");
 
+const sep = std.fs.path.sep;
+
+inline fn projDir() []const u8 {
+    const dir = comptime std.fs.path.dirname(@src().file) orelse unreachable;
+    return comptime dir ++ "/";
+}
+
 pub fn build(b: *std.Build) !void {
     var target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const win_target = try std.zig.CrossTarget.parse(.{ .arch_os_abi = "x86_64-windows-gnu" });
-    target = win_target;
+    // const win_target = try std.zig.CrossTarget.parse(.{ .arch_os_abi = "x86_64-windows-gnu" });
+    // target = win_target;
+
+    const name_suffix = b.option([]const u8, "filename-suffix", "Filename suffix") orelse "";
+
+    const exe_name = try std.fmt.allocPrintZ(
+        b.allocator,
+        "mv-widgets{s}",
+        .{ name_suffix },
+    );
 
     const exe = b.addExecutable(.{
-        .name = "mv-widgets",
+        .name = exe_name,
         .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         .optimize = optimize,
     });
     raylib.addTo(b, exe, target, optimize);
     raygui.addTo(b, exe, target, optimize);
+    exe.addAnonymousModule(
+        "mecha",
+        .{ .source_file = .{ .path = projDir() ++ "lib/mecha/mecha.zig" } },
+    );
+    exe.addAnonymousModule(
+        "zig-datetime",
+        .{ .source_file = .{ .path = projDir() ++ "lib/zig-datetime/src/datetime.zig" } },
+    );
     exe.addAnonymousModule("primary_font.ttf", .{ .source_file = .{ .path = "data/Manrope-Regular.ttf" } });
     exe.addAnonymousModule("mono_font.ttf", .{ .source_file = .{ .path = "data/RobotoMono-Regular.ttf" } });
 
