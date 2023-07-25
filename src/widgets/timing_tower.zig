@@ -88,7 +88,11 @@ pub fn render(this: *This, frame_allocator: Allocator, window: *Window, lt_state
     const render_height_f: f32 = @floatFromInt(raylib.GetRenderHeight());
     const rows_offset_y: i32 = @intFromFloat(render_height_f * 0.1);
 
-    const columns = column_configs.race;
+    const columns = val: {
+        if (lt_state.session_info == null) break :val column_configs.race;
+        if (lt_state.session_info.?.session_type == .race) break :val column_configs.race;
+        break :val column_configs.quali;
+    };
 
     // Pre-calculate the layout for rows
     const total_h = raylib.GetRenderHeight() - rows_offset_y;
@@ -215,9 +219,11 @@ fn renderDriver(
             .lead_gap => allocPrintDelta(frame_allocator, driver.gap_to_leader, true),
         };
 
+        const is_race = if (lt_state.session_info) |x| x.session_type == .race else false;
+
         // Change color depending on the column and the data contained
         var text_color: raylib.Color = off_white;
-        if (col_type == .next_gap and driver.gap_ahead != null and driver.gap_ahead.? == .ms) {
+        if (col_type == .next_gap and is_race and driver.gap_ahead != null and driver.gap_ahead.? == .ms) {
             if (driver.gap_ahead.?.ms < 2_000) {
                 text_color = raylib.GOLD;
             }
@@ -234,7 +240,7 @@ fn renderDriver(
         if (col_type == .tla) {
             text_color = raylib.ColorContrast(driver_info.?.team_color, -0.15);
         }
-        if (col_type == .next_gap and driver.in_pit) {
+        if (col_type == .next_gap and driver.in_pit and is_race) {
             text = "  Pit";
             text_color = raylib.ColorFromHSV(195, 0.4, 1);
         }
@@ -288,17 +294,16 @@ fn allocPrintDelta(allocator: Allocator, ms_or_laps_opt: ?f1_lt.MsOrLaps, only_t
     }
 }
 
-fn allocPrintLap(allocator: Allocator, ms_or_null: ?i32) [:0]const u8 {
+fn allocPrintLap(allocator: Allocator, ms_or_null: ?u32) [:0]const u8 {
     if (ms_or_null != null) {
-        var ms: i32 = ms_or_null.?;
-        ms = if (ms < 0) -ms else ms;
+        var ms: u32 = ms_or_null.?;
 
-        const min: u32 = @intCast(@divTrunc(ms, 60_000));
-        const sec: u32 = @intCast(@divTrunc(@rem(ms, 60_000), 1000));
-        const frac: u32 = @intCast(@rem(@divTrunc(ms, 10), 100));
+        const min: u32 = @divTrunc(ms, 60_000);
+        const sec: u32 = @divTrunc(@rem(ms, 60_000), 1000);
+        const frac: u32 = @rem(ms, 1000);
 
-        return std.fmt.allocPrintZ(allocator, "{d}:{d:0>2}.{d:0>2}", .{ min, sec, frac }) catch unreachable;
+        return std.fmt.allocPrintZ(allocator, "{d}:{d:0>2}.{d:0>3}", .{ min, sec, frac }) catch unreachable;
     } else {
-        return "N/A";
+        return "-";
     }
 }

@@ -12,7 +12,9 @@ pub const MsOrLaps = union(enum) {
     ms: i32,
     laps: i32,
 
-    pub fn parse(allocator: Allocator, text: [:0]const u8) ?MsOrLaps {
+    pub fn parse(allocator: Allocator, text: ?[:0]const u8) ?MsOrLaps {
+        if (text == null) return null;
+
         const lap_parser = comptime mecha.combine(.{
             mecha.int(i32, .{ .base = 10, .parse_sign = true }),
             mecha.ascii.whitespace.many(.{}).opt().discard(),
@@ -20,8 +22,8 @@ pub const MsOrLaps = union(enum) {
             mecha.eos,
         });
 
-        const sec: f64 = fmt.parseFloat(f64, text) catch {
-            const parsed_laps = lap_parser.parse(allocator, text) catch return null;
+        const sec: f64 = fmt.parseFloat(f64, text.?) catch {
+            const parsed_laps = lap_parser.parse(allocator, text.?) catch return null;
             return .{ .laps = parsed_laps.value };
         };
 
@@ -72,6 +74,7 @@ pub const State = struct {
     timing_data: ?TimingData,
     timing_app_data: ?TimingAppData,
     driver_list: ?DriverList,
+    session_info: ?SessionInfo,
     lap_number: ?u32,
     target_lap_count: ?u32,
 
@@ -109,12 +112,17 @@ pub const State = struct {
 pub const TimingData = struct {
     drivers: []Driver,
 
+    pub const TimingDataRaw = struct {
+        Lines: json.Value,
+        SessionPart: ?u32 = null,
+    };
+
     pub const Driver = struct {
         driver_number: u32,
         position: u32,
         gap_to_leader: ?MsOrLaps,
         gap_ahead: ?MsOrLaps,
-        best_lap_time_ms: ?i32 = null,
+        best_lap_time_ms: ?u32,
         has_fastest_lap: bool = false,
         in_pit: bool,
     };
@@ -122,10 +130,19 @@ pub const TimingData = struct {
     const DriverRaw = struct {
         RacingNumber: [:0]const u8,
         Line: u32,
-        GapToLeader: [:0]const u8,
-        IntervalToPositionAhead: struct {
+        GapToLeader: ?[:0]const u8 = null,
+        TimeDiffToPositionAhead: ?[:0]const u8 = null,
+        TimeDiffToFastest: ?[:0]const u8 = null,
+        IntervalToPositionAhead: ?struct {
             Value: [:0]const u8,
-        },
+        } = null,
+        BestLapTime: ?struct {
+            Value: [:0]const u8,
+        } = null,
+        Stats: ?[]struct {
+            TimeDiffToFastest: [:0]const u8,
+            TimeDifftoPositionAhead: [:0]const u8,
+        } = null,
         InPit: bool,
     };
 
@@ -143,20 +160,61 @@ pub const TimingData = struct {
     /// Parses the timing data which is a JSON object with driver numbers as keys
     /// Caller should call this function with an Arena allocator or similar and free
     /// the memory afterwards.
-    pub fn parseLeaky(allocator: Allocator, json_data: json.Value) !@This() {
-        if (json_data != .object) return error.InvalidDataFormat;
+    pub fn parseLeaky(allocator: Allocator, timing_data: TimingDataRaw) !@This() {
+        const Lines = timing_data.Lines;
+        if (Lines != .object) return error.InvalidDataFormat;
 
-        const items_raw: []json.Value = json_data.object.values();
+        const items_raw: []json.Value = Lines.object.values();
         var drivers: []Driver = try allocator.alloc(Driver, items_raw.len);
 
         for (items_raw, 0..) |raw, i| {
             const raw_parsed = json.parseFromValueLeaky(DriverRaw, allocator, raw, .{ .ignore_unknown_fields = true }) catch |err| {
-                std.log.err("Failed to parse TimingData entry", .{});
+                const json_str = try json.stringifyAlloc(allocator, raw, .{});
+                defer allocator.free(json_str);
+
+                std.log.err("Failed to parse TimingData entry: {s}", .{json_str});
                 return err;
             };
 
-            const gap_to_leader = MsOrLaps.parse(allocator, raw_parsed.GapToLeader);
-            const gap_ahead = MsOrLaps.parse(allocator, raw_parsed.IntervalToPositionAhead.Value);
+            const gap_to_leader = val: {
+                // race
+                if (raw_parsed.GapToLeader != null) {
+                    const gap = MsOrLaps.parse(allocator, raw_parsed.GapToLeader);
+                    if (gap != null) break :val gap;
+                }
+                // practice
+                if (raw_parsed.TimeDiffToFastest != null) {
+                    const gap = MsOrLaps.parse(allocator, raw_parsed.TimeDiffToFastest);
+                    if (gap != null) break :val gap;
+                }
+                // qualifying
+                if (timing_data.SessionPart == null or raw_parsed.Stats == null) break :val null;
+                if (raw_parsed.Stats.?.len < timing_data.SessionPart.?) break :val null;
+                const index = timing_data.SessionPart.? - 1;
+                break :val MsOrLaps.parse(allocator, raw_parsed.Stats.?[index].TimeDiffToFastest);
+            };
+            const gap_ahead = val: {
+                // race
+                if (raw_parsed.IntervalToPositionAhead != null) {
+                    const interval_ahead = MsOrLaps.parse(allocator, raw_parsed.IntervalToPositionAhead.?.Value);
+                    if (interval_ahead != null) break :val interval_ahead;
+                }
+                // practice
+                if (raw_parsed.TimeDiffToPositionAhead != null) {
+                    const gap = MsOrLaps.parse(allocator, raw_parsed.TimeDiffToPositionAhead);
+                    if (gap != null) break :val gap;
+                }
+                // qualifying
+                if (timing_data.SessionPart == null or raw_parsed.Stats == null) break :val null;
+                if (raw_parsed.Stats.?.len < timing_data.SessionPart.?) break :val null;
+                const index = timing_data.SessionPart.? - 1;
+                break :val MsOrLaps.parse(allocator, raw_parsed.Stats.?[index].TimeDifftoPositionAhead);
+            };
+
+            const best_lap_time_ms = val: {
+                if (raw_parsed.BestLapTime == null) break :val null;
+                break :val parser.parseLapTime(allocator, raw_parsed.BestLapTime.?.Value) catch null;
+            };
 
             drivers[i] = Driver{
                 .driver_number = try fmt.parseInt(u32, raw_parsed.RacingNumber, 10),
@@ -164,6 +222,7 @@ pub const TimingData = struct {
                 .in_pit = raw_parsed.InPit,
                 .gap_to_leader = gap_to_leader,
                 .gap_ahead = gap_ahead,
+                .best_lap_time_ms = best_lap_time_ms,
             };
         }
 
@@ -200,7 +259,13 @@ pub const TimingAppData = struct {
         var drivers: []Driver = try allocator.alloc(Driver, items_raw.len);
 
         for (items_raw, 0..) |raw, i| {
-            const raw_parsed = try json.parseFromValueLeaky(DriverRaw, allocator, raw, .{ .ignore_unknown_fields = true });
+            const raw_parsed = json.parseFromValueLeaky(DriverRaw, allocator, raw, .{ .ignore_unknown_fields = true }) catch |err| {
+                const json_str = try json.stringifyAlloc(allocator, raw, .{});
+                defer allocator.free(json_str);
+
+                std.log.err("Failed to parse TimingAppData entry: {s}", .{json_str});
+                return err;
+            };
 
             const last_stint: ?StintRaw = if (raw_parsed.Stints.len > 0) raw_parsed.Stints[raw_parsed.Stints.len - 1] else null;
             const current_tyre: TyreCompound = if (last_stint) |s| TyreCompound.fromString(s.Compound) else .unknown;
@@ -254,6 +319,46 @@ pub const DriverList = struct {
 
         return .{
             .drivers = drivers,
+        };
+    }
+};
+
+pub const SessionInfo = struct {
+    name: [:0]const u8,
+    session_type: Type,
+
+    pub const Type = enum {
+        practice,
+        qualifying,
+        race,
+        unknown,
+
+        pub fn parse(str: [:0]const u8) @This() {
+            const map = .{
+                .{ "Practice", .practice },
+                .{ "Qualifying", .qualifying },
+                .{ "Race", .race },
+            };
+            inline for (map) |pair| {
+                if (std.mem.eql(u8, pair[0], str)) return pair[1];
+            }
+            return .unknown;
+        }
+    };
+
+    pub const Raw = struct {
+        Type: [:0]const u8,
+        Meeting: struct {
+            Name: [:0]const u8,
+        },
+    };
+
+    pub fn parse(allocator: Allocator, data: Raw) !@This() {
+        _ = allocator;
+
+        return .{
+            .name = data.Meeting.Name,
+            .session_type = Type.parse(data.Type),
         };
     }
 };

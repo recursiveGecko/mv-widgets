@@ -83,6 +83,30 @@ pub fn parseClock(allocator: Allocator, clock_str: []const u8) !Clock {
     };
 }
 
+/// Parser F1-formatted lap time, e.g. 1:08.124
+pub fn parseLapTime(allocator: Allocator, time_str: []const u8) !u32 {
+    const lap_time_parser = comptime mecha.combine(.{
+        mecha.int(u32, .{.parse_sign = false}),
+        mecha.ascii.char(':').discard(),
+        mecha.int(u32, .{.parse_sign = false}),
+        mecha.ascii.char('.').discard(),
+        mecha.ascii.digit(10).many(.{}),
+        mecha.eos,
+    });
+
+    const clock_parse_result = (try lap_time_parser.parse(allocator, time_str)).value;
+
+    const minutes = clock_parse_result[0];
+    const seconds = clock_parse_result[1];
+    const ms_str = try std.fmt.allocPrint(allocator, "0.{s}", .{clock_parse_result[2]});
+    defer allocator.free(ms_str);
+    
+    const ms_f = (try std.fmt.parseFloat(f64, ms_str)) * 1000.0;
+    const ms: u32 = @intFromFloat(ms_f);
+
+    return minutes * 60_000 + seconds * 1000 + ms;
+}
+
 pub fn parseHexColor(allocator: Allocator, color_str: []const u8) !raylib.Color {
     const color_parser = comptime mecha.combine(.{
         mecha.ascii.char('#').opt().discard(),

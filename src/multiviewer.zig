@@ -9,6 +9,7 @@ const f1_lt = @import("f1_live_timing.zig");
 pub fn fetchStateLeaky(parent_allocator: Allocator) !f1_lt.State {
     var arena = std.heap.ArenaAllocator.init(parent_allocator);
     var allocator = arena.allocator();
+    errdefer arena.deinit();
 
     var client = http.Client{ .allocator = allocator };
     defer client.deinit();
@@ -27,6 +28,7 @@ pub fn fetchStateLeaky(parent_allocator: Allocator) !f1_lt.State {
         \\     DriverList
         \\     LapCount
         \\     TimingAppData
+        \\     SessionInfo
         \\   }
         \\   liveTimingClock {
         \\     trackTime
@@ -68,24 +70,23 @@ pub fn fetchStateLeaky(parent_allocator: Allocator) !f1_lt.State {
 
 pub const MVResponse = struct {
     data: struct {
-        liveTimingState: ?MVLiveTimingState,
-        liveTimingClock: ?MVLiveTimingClock,
+        liveTimingState: ?MVLiveTimingState = null,
+        liveTimingClock: ?MVLiveTimingClock = null,
     },
 };
 
 const MVLiveTimingState = struct {
-    ExtrapolatedClock: ?f1_lt.SessionClock.ExtrapolatedClockRaw,
-    TimingData: ?struct {
-        Lines: json.Value,
-    },
+    ExtrapolatedClock: ?f1_lt.SessionClock.ExtrapolatedClockRaw = null,
+    SessionInfo: ?f1_lt.SessionInfo.Raw = null,
+    TimingData: ?f1_lt.TimingData.TimingDataRaw = null,
     TimingAppData: ?struct {
         Lines: json.Value,
-    },
+    } = null,
     DriverList: json.Value,
     LapCount: ?struct {
         CurrentLap: u32,
         TotalLaps: u32,
-    },
+    } = null,
 };
 
 pub const MVLiveTimingClock = struct {
@@ -121,31 +122,29 @@ fn parseResultLeaky(allocator: Allocator, resp: MVResponse) !f1_lt.State {
         break :val clock;
     };
 
-    const maybe_timing_data: ?f1_lt.TimingData = val: {
-        if (liveTimingState == null) break :val null;
-        if (liveTimingState.?.TimingData == null) break :val null;
-        const Lines = liveTimingState.?.TimingData.?.Lines;
-        if (Lines != .object) break :val null;
-
-        const timing_data = f1_lt.TimingData.parseLeaky(allocator, Lines) catch |err| {
-            std.log.err("Failed to parse timing data", .{});
-            return err;
-        };
-
-        break :val timing_data;
-    };
-
     const maybe_driver_list: ?f1_lt.DriverList = val: {
         if (liveTimingState == null) break :val null;
         const DriverList = liveTimingState.?.DriverList;
         if (DriverList != .object) break :val null;
 
         const driver_list = f1_lt.DriverList.parseLeaky(allocator, DriverList) catch |err| {
-            std.log.err("Failed to parse driver list", .{});
-            return err;
+            std.log.err("Failed to parse driver list: {any}", .{err});
+            break :val null;
         };
 
         break :val driver_list;
+    };
+
+    const maybe_timing_data: ?f1_lt.TimingData = val: {
+        if (liveTimingState == null) break :val null;
+        if (liveTimingState.?.TimingData == null) break :val null;
+
+        const timing_data = f1_lt.TimingData.parseLeaky(allocator, liveTimingState.?.TimingData.?) catch |err| {
+            std.log.err("Failed to parse timing data: {any}", .{err});
+            break :val null;
+        };
+
+        break :val timing_data;
     };
 
     const maybe_timing_app_data: ?f1_lt.TimingAppData = val: {
@@ -155,11 +154,24 @@ fn parseResultLeaky(allocator: Allocator, resp: MVResponse) !f1_lt.State {
         if (Lines != .object) break :val null;
 
         const timing_app_data = f1_lt.TimingAppData.parseLeaky(allocator, Lines) catch |err| {
-            std.log.err("Failed to parse timing app data", .{});
-            return err;
+            std.log.err("Failed to parse timing app data: {any}", .{err});
+            break :val null;
         };
 
         break :val timing_app_data;
+    };
+
+    const maybe_session_info: ?f1_lt.SessionInfo = val: {
+        if (liveTimingState == null) break :val null;
+        if (liveTimingState.?.SessionInfo == null) break :val null;
+        const SessionInfo = liveTimingState.?.SessionInfo.?;
+
+        const session_info = f1_lt.SessionInfo.parse(allocator, SessionInfo) catch |err| {
+            std.log.err("Failed to parse session info: {any}", .{err});
+            break :val null;
+        };
+
+        break :val session_info;
     };
 
     const LapCount = liveTimingState.?.LapCount;
@@ -172,5 +184,6 @@ fn parseResultLeaky(allocator: Allocator, resp: MVResponse) !f1_lt.State {
         .lap_number = if (LapCount) |lc| lc.CurrentLap else null,
         .target_lap_count = if (LapCount) |lc| lc.TotalLaps else null,
         .timing_app_data = maybe_timing_app_data,
+        .session_info = maybe_session_info,
     };
 }
