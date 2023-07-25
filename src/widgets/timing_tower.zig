@@ -78,6 +78,11 @@ pub fn windowTitle(this: *This) [:0]const u8 {
     return "Timing Tower";
 }
 
+pub fn backgroundColor(this: *const This) raylib.Color {
+    _ = this;
+    return raylib.Color{ .r = 20, .g = 20, .b = 20, .a = 255 };
+}
+
 pub fn render(this: *This, frame_allocator: Allocator, window: *Window, lt_state: *f1_lt.State) !void {
     _ = this;
     _ = window;

@@ -119,9 +119,7 @@ fn uiLoop(widget: *widgets.Widget) !void {
             raylib.EndDrawing();
         }
 
-        const bg_color = raylib.Color{ .r = 20, .g = 20, .b = 20, .a = 255 };
-        // const bg_color = raylib.Color{ .r = 0, .g = 0, .b = 0, .a = 110 };
-        raylib.ClearBackground(bg_color);
+        raylib.ClearBackground(widget.backgroundColor());
 
         window.handleDrag();
         window.handleResize();

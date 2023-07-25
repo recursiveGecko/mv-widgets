@@ -20,25 +20,25 @@ pub const Widget = union(enum) {
         };
     }
 
-    pub fn initialDimensions(
-        this: *const Widget,
-    ) raylib.RectangleI {
+    pub fn initialDimensions(this: *const Widget) raylib.RectangleI {
         return switch (this.*) {
             .timing_tower => |m| m.initialDimensions(),
         };
     }
 
-    pub fn windowTitle(
-        this: *const Widget,
-    ) [:0]const u8 {
+    pub fn backgroundColor(this: *const Widget) raylib.Color {
+        return switch (this.*) {
+            .timing_tower => |m| m.backgroundColor(),
+        };
+    }
+
+    pub fn windowTitle(this: *const Widget) [:0]const u8 {
         return switch (this.*) {
             .timing_tower => |m| m.windowTitle(),
         };
     }
 
-    pub fn deinit(
-        this: *const Widget,
-    ) void {
+    pub fn deinit(this: *const Widget) void {
         return switch (this.*) {
             .timing_tower => |m| m.deinit(),
         };
