@@ -24,7 +24,7 @@ pub fn init(allocator: Allocator, target_rect: raylib.RectangleI, title: [:0]con
 
     fonts.init(allocator);
     raylib.SetConfigFlags(.{
-        .FLAG_WINDOW_RESIZABLE = true,
+        // .FLAG_WINDOW_RESIZABLE = true,
         // .FLAG_WINDOW_MAXIMIZED = true,
         .FLAG_MSAA_4X_HINT = true,
         .FLAG_WINDOW_ALWAYS_RUN = true,
