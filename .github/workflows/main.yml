@@ -5,13 +5,18 @@ on:
   push:
     branches:
       - stable
+      - develop
     tags:
       - "release/*"
   pull_request:
 
 jobs:
   build-release:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -25,7 +30,7 @@ jobs:
 
       - name: Build
         run: |
-          zig build -Doptimize=Debug -Dtarget=x86_64-windows-gnu -Dfilename-suffix=-x86_64-windows
+          zig build
 
       - name: GH Release
         uses: softprops/action-gh-release@v0.1.15
