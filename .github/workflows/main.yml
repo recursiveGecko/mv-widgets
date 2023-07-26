@@ -32,7 +32,7 @@ jobs:
       - name: Dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
-          apt-get install -y xorg-dev
+          sudo apt-get install -y xorg-dev
 
       - name: Build
         run: |
