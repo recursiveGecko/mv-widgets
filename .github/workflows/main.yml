@@ -37,7 +37,6 @@ jobs:
       - name: Build
         run: |
           zig build
-          ls -al zig-out/bin
 
       - uses: actions/upload-artifact@v3
         with:
