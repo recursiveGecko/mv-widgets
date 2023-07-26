@@ -28,6 +28,11 @@ jobs:
         with:
           version: 0.11.0-dev.3971+6bc9c4f71
 
+      - name: Dependencies (Linux)
+        if: runner.os == "Linux"
+        run: |
+          apt-get install -y xorg-dev
+
       - name: Build
         run: |
           zig build
