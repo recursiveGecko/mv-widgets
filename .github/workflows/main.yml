@@ -37,6 +37,12 @@ jobs:
       - name: Build
         run: |
           zig build
+          ls -al zig-out/bin
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: mv-widgets-${{ runner.os }}
+          path: zig-out
 
       - name: GH Release
         uses: softprops/action-gh-release@v0.1.15
