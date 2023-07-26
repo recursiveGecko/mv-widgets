@@ -21,7 +21,7 @@ pub fn build(b: *std.Build) !void {
     const exe_name = try std.fmt.allocPrintZ(
         b.allocator,
         "mv-widgets{s}",
-        .{ name_suffix },
+        .{name_suffix},
     );
 
     const exe = b.addExecutable(.{
@@ -42,6 +42,13 @@ pub fn build(b: *std.Build) !void {
     );
     exe.addAnonymousModule("primary_font.ttf", .{ .source_file = .{ .path = "data/Manrope-Regular.ttf" } });
     exe.addAnonymousModule("mono_font.ttf", .{ .source_file = .{ .path = "data/RobotoMono-Regular.ttf" } });
+
+    if (target.os_tag.? == .macos) {
+        std.debug.print("\n\n=> Adding macOS frameworks, libraries, and headers");
+        exe.addFrameworkPath("/System/Library/Frameworks");
+        exe.addSystemIncludePath("/System/Library/include");
+        exe.addLibraryPath("/System/Library/lib");
+    }
 
     b.installArtifact(exe);
     const run_cmd = b.addRunArtifact(exe);
