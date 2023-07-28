@@ -53,7 +53,7 @@ jobs:
       - name: Build (Linux)
         if: contains(matrix.target, 'linux')
         run: |
-          zig build -Dtarget=${{matrix.target}} -Doptimize=ReleaseSafe
+          zig build -Dcpu=x86_64 -Doptimize=ReleaseSafe
 
       - uses: actions/upload-artifact@v3
         with:
