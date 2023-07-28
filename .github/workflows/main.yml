@@ -11,18 +11,13 @@ on:
   pull_request:
 
 jobs:
-  build-release:
+  build:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        include:
-          - os: macos-latest
-            target: aarch64-macos
-          - os: macos-latest
-            target: x86_64-macos
+        targets: [x86_64-windows, x86_64-linux, x86_64-macos, aarch64-macos]
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -46,29 +41,38 @@ jobs:
       #     limit-access-to-users: recursiveGecko
 
       - name: Build (Windows)
-        if: runner.os == 'Windows'
+        if: contains(matrix.target, 'windows')
         run: |
-          zig build
+          zig build -Dtarget=${{matrix.target}}
 
       - name: Build (macOS)
-        if: runner.os == 'macOS'
+        if: contains(matrix.target, 'macos')
         run: |
           zig build -Dtarget=${{matrix.target}} -Doptimize=ReleaseSafe --sysroot lib/MacOSX11.3.sdk/
 
       - name: Build (Linux)
-        if: runner.os == 'Linux'
+        if: contains(matrix.target, 'linux')
         run: |
-          zig build -Doptimize=ReleaseSafe
+          zig build -Dtarget=${{matrix.target}} -Doptimize=ReleaseSafe
 
       - uses: actions/upload-artifact@v3
         with:
-          name: mv-widgets-${{ matrix.os }}-${{ matrix.target }}
-          path: zig-out
+          name: mv-widgets-${{ matrix.target }}
+          path: zig-out/bin
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          path: artifacts
 
       - name: GH Release
         uses: softprops/action-gh-release@v0.1.15
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            zig-out/bin/mv-widgets-x86_64-windows.exe
+            artifacts/*
           draft: true
