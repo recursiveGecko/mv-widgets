@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        targets: [x86_64-windows, x86_64-linux, x86_64-macos, aarch64-macos]
+        target: [x86_64-windows, x86_64-linux, x86_64-macos, aarch64-macos]
 
     runs-on: ubuntu-latest
     steps:
