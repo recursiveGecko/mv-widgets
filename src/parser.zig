@@ -27,7 +27,7 @@ pub fn parseISO8601(allocator: Allocator, iso: []const u8) !DateTime {
             num, //second
             mecha.combine(.{
                 mecha.ascii.char('.').discard(),
-                mecha.int(u32, .{ .parse_sign = false, .max_digits = 3 }), // millisecond
+                mecha.ascii.digit(10).many(.{}),
             }).opt(),
             mecha.rest, //UTC offset
         });
@@ -37,7 +37,16 @@ pub fn parseISO8601(allocator: Allocator, iso: []const u8) !DateTime {
     const fields = result.value;
     const f = fields;
 
-    const nanosecond = if (f[6]) |ms| ms * 1_000_000 else 0;
+    const nanoseconds: u32 = val: {
+        if (f[6] == null) break :val 0;
+
+        const fraction_str = try std.fmt.allocPrintZ(allocator, "0.{s}", .{f[6].?});
+        defer allocator.free(fraction_str);
+
+        const fraction = try std.fmt.parseFloat(f64, fraction_str);
+        break :val @intFromFloat(fraction * 1_000_000_000);
+    };
+
     const timezone: *const Timezone = val: {
         const parsed_tz: []const u8 = f[7];
 
@@ -49,7 +58,7 @@ pub fn parseISO8601(allocator: Allocator, iso: []const u8) !DateTime {
         return error.InvalidTimezone;
     };
 
-    return DateTime.create(f[0], f[1], f[2], f[3], f[4], f[5], nanosecond, timezone);
+    return DateTime.create(f[0], f[1], f[2], f[3], f[4], f[5], nanoseconds, timezone);
 }
 
 pub const Clock = struct {

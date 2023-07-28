@@ -40,25 +40,26 @@ pub fn build(b: *std.Build) !void {
     exe.addAnonymousModule("mono_font.ttf", .{ .source_file = .{ .path = "data/RobotoMono-Regular.ttf" } });
 
     b.installArtifact(exe);
-    // const run_cmd = b.addRunArtifact(exe);
-    // run_cmd.step.dependOn(b.getInstallStep());
+    
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.step.dependOn(b.getInstallStep());
 
-    // if (b.args) |args| {
-    //     run_cmd.addArgs(args);
-    // }
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
 
-    // const run_step = b.step("run", "Run the app");
-    // run_step.dependOn(&run_cmd.step);
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run_cmd.step);
 
-    // const unit_tests = b.addTest(.{
-    //     .root_source_file = .{ .path = "src/main.zig" },
-    //     .target = target,
-    //     .optimize = optimize,
-    // });
+    const unit_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
 
-    // const run_unit_tests = b.addRunArtifact(unit_tests);
-    // const test_step = b.step("test", "Run unit tests");
-    // test_step.dependOn(&run_unit_tests.step);
+    const run_unit_tests = b.addRunArtifact(unit_tests);
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_unit_tests.step);
 }
 
 // Taken from raylib.zig's build.zig and modified to `addFrameworkPath` for cross-compiled MacOS builds
@@ -73,8 +74,8 @@ pub fn addRaylibBindings(
     const raylib_upstream_dir = raylib_bindings_dir ++ "raylib/";
 
     exe.addAnonymousModule("raylib", .{ .source_file = .{ .path = raylib_bindings_dir ++ "raylib.zig" } });
-    exe.addIncludePath(projDir() ++ "lib/raylib/raylib/src");
-    exe.addIncludePath(projDir() ++ "lib/raylib");
+    exe.addIncludePath(raylib_upstream_dir ++ "src");
+    exe.addIncludePath(raylib_bindings_dir);
 
     const bindings_lib = b.addStaticLibrary(.{ .name = "raylib-zig", .target = target, .optimize = optimize });
     bindings_lib.addIncludePath(raylib_upstream_dir ++ "src");
