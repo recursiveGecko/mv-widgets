@@ -12,13 +12,12 @@ pub fn build(b: *std.Build) !void {
     var target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const name_suffix = b.option([]const u8, "filename-suffix", "Filename suffix") orelse "";
+    const name_suffix = b.option([]const u8, "filename-suffix", "Filename suffix");
 
-    const exe_name = try std.fmt.allocPrintZ(
-        b.allocator,
-        "mv-widgets{s}",
-        .{name_suffix},
-    );
+    const exe_name = if (name_suffix) |suffix|
+        try std.fmt.allocPrintZ(b.allocator, "mv-widgets-{s}", .{suffix})
+    else
+        "mv-widgets";
 
     const exe = b.addExecutable(.{
         .name = exe_name,
@@ -40,7 +39,7 @@ pub fn build(b: *std.Build) !void {
     exe.addAnonymousModule("mono_font.ttf", .{ .source_file = .{ .path = "data/RobotoMono-Regular.ttf" } });
 
     b.installArtifact(exe);
-    
+
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
 

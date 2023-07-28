@@ -45,11 +45,10 @@ pub fn main() !void {
     widget.* = .{
         .timing_tower = try widgets.TimingTower.init(widget_gpa.allocator()),
     };
-    
-    var ui_thread = try std.Thread.spawn(.{}, uiLoop, .{widget});
+
     var update_thread = try std.Thread.spawn(.{}, stateUpdateLoop, .{});
 
-    ui_thread.join();
+    try uiLoop(widget);
     update_thread.join();
 }
 

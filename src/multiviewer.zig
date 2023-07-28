@@ -7,6 +7,8 @@ const parser = @import("parser.zig");
 const f1_lt = @import("f1_live_timing.zig");
 
 pub fn fetchStateLeaky(parent_allocator: Allocator) !f1_lt.State {
+    // std.log.debug("Fetching state ...", .{});
+
     var arena = std.heap.ArenaAllocator.init(parent_allocator);
     var allocator = arena.allocator();
     errdefer arena.deinit();
@@ -174,7 +176,7 @@ fn parseResultLeaky(allocator: Allocator, resp: MVResponse) !f1_lt.State {
         break :val session_info;
     };
 
-    const LapCount = liveTimingState.?.LapCount;
+    const LapCount = if(liveTimingState) |state| state.LapCount else null;
 
     return f1_lt.State{
         .arena = null,
