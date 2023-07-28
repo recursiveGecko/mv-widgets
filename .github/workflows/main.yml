@@ -58,7 +58,9 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: mv-widgets-${{ matrix.target }}
-          path: zig-out/bin
+          path: |
+            zig-out/bin
+            !zig-out/bin/*.pdb
 
   release:
     needs: [build]
@@ -74,5 +76,6 @@ jobs:
         uses: softprops/action-gh-release@v0.1.15
         with:
           files: |
-            artifacts/*
+            artifacts/*/*
           draft: true
+          fail_on_unmatched_files: true
