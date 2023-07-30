@@ -38,6 +38,14 @@ pub fn build(b: *std.Build) !void {
     exe.addAnonymousModule("primary_font.ttf", .{ .source_file = .{ .path = "data/Manrope-Regular.ttf" } });
     exe.addAnonymousModule("mono_font.ttf", .{ .source_file = .{ .path = "data/RobotoMono-Regular.ttf" } });
 
+    // Compile and link Win32 resources (icon, properties)
+    if (target.getOsTag() == .windows) {
+        var res_path = b.fmt("{s}/win.res", .{b.cache_root.path.?});
+        var resources = b.addSystemCommand(&.{ "x86_64-w64-mingw32-windres", "-i", projDir() ++ "data/win.rc", "-o", res_path });
+        exe.step.dependOn(&resources.step);
+        exe.addObjectFile(res_path);
+    }
+
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

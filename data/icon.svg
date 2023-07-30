@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3 (0e150ed6c4, 2023-07-21)"
+   sodipodi:docname="MVWidgetsLogo.svg"
+   inkscape:export-filename="MVWidgetsLogo.png"
+   inkscape:export-xdpi="67.013573"
+   inkscape:export-ydpi="67.013573"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="mm"
+     inkscape:zoom="0.25"
+     inkscape:cx="-2086"
+     inkscape:cy="-106"
+     inkscape:window-width="2560"
+     inkscape:window-height="1369"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <linearGradient
+       id="linearGradient12"
+       inkscape:collect="always">
+      <stop
+         style="stop-color:#220055;stop-opacity:1"
+         offset="0"
+         id="stop12" />
+      <stop
+         style="stop-color:#5500d4;stop-opacity:1"
+         offset="1"
+         id="stop13" />
+    </linearGradient>
+    <rect
+       x="222.49431"
+       y="214.12087"
+       width="9.808889"
+       height="11.96206"
+       id="rect10" />
+    <rect
+       x="221.44231"
+       y="217.88976"
+       width="15.225216"
+       height="14.379371"
+       id="rect3" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient12"
+       id="linearGradient13"
+       x1="64.356781"
+       y1="54.270092"
+       x2="68.343163"
+       y2="61.65081"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(6.0385553,0,0,6.0385553,-269.49915,-248.75109)" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:url(#linearGradient13);fill-opacity:1;stroke-width:1.5977"
+       id="rect6"
+       width="97.03109"
+       height="97.03109"
+       x="53.487385"
+       y="49.369526"
+       ry="10.13556"
+       inkscape:export-filename="rect6.png"
+       inkscape:export-xdpi="404.66519"
+       inkscape:export-ydpi="404.66519" />
+    <rect
+       style="fill:#ccaaff;stroke-width:1.64624"
+       id="rect7"
+       width="13.507294"
+       height="81.543571"
+       x="61.332317"
+       y="57.844959"
+       ry="1.8087295"
+       rx="0" />
+    <rect
+       style="fill:#e5d5ff;stroke-width:1.61459"
+       id="rect8"
+       width="61.829887"
+       height="7.9733"
+       x="79.837212"
+       y="57.742611"
+       ry="1.6216896" />
+    <rect
+       style="fill:#ccaaff;stroke-width:1.46619"
+       id="rect8-5"
+       width="60.995354"
+       height="7.3111877"
+       x="80.102715"
+       y="131.60971"
+       ry="1.3708473" />
+    <rect
+       style="fill:#e5d5ff;stroke-width:1.33721"
+       id="rect1"
+       width="9.0363903"
+       height="54.860851"
+       x="131.91989"
+       y="71.135132"
+       ry="2.4775872" />
+    <rect
+       style="fill:#ccaaff;stroke-width:1.52063"
+       id="rect2"
+       width="45.81805"
+       height="7.5882583"
+       x="79.686447"
+       y="72.315475"
+       ry="1.4962763" />
+    <rect
+       style="fill:#e5d5ff;stroke-width:1.71459"
+       id="rect4"
+       width="11.486967"
+       height="39.962582"
+       x="80.133263"
+       y="85.902275"
+       ry="1.9355122" />
+    <rect
+       style="fill:#ccaaff;stroke-width:1.24964"
+       id="rect5"
+       width="28.408379"
+       height="6.5410876"
+       x="97.658051"
+       y="119.26099"
+       ry="1.0406212" />
+    <rect
+       style="fill:#b380ff;stroke-width:3.97328"
+       id="rect9"
+       width="27.780014"
+       height="26.22459"
+       x="97.564339"
+       y="86.418472"
+       ry="1.4230154"
+       inkscape:export-filename="rect6.png"
+       inkscape:export-xdpi="134.02715"
+       inkscape:export-ydpi="134.02715" />
+  </g>
+</svg>

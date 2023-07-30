@@ -1,0 +1,4 @@
+// Example: https://github.com/raysan5/raylib/blob/44659b7ba8bd6d517d75fac8675ecd026f713240/src/raylib.rc
+// First ICON in this file is used as an EXE icon in Explorer, while the ID of "GLFW_ICON" gets special treatment.
+// GLFW looks for this resource ID and automatically sets the window icon if it exists. 
+GLFW_ICON ICON "icon.ico"

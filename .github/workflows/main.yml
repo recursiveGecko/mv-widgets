@@ -29,10 +29,9 @@ jobs:
         with:
           version: 0.11.0-dev.3971+6bc9c4f71
 
-      - name: Dependencies (Linux)
-        if: runner.os == 'Linux'
+      - name: Dependencies
         run: |
-          sudo apt-get install -y xorg-dev
+          sudo apt-get install -y xorg-dev mingw-w64
 
       # - name: Setup upterm session
       #   uses: lhotari/action-upterm@v1
@@ -49,18 +48,29 @@ jobs:
         if: contains(matrix.target, 'macos')
         run: |
           zig build -Dtarget=${{matrix.target}} -Dfilename-suffix=${{matrix.target}} -Doptimize=ReleaseSafe --sysroot lib/MacOSX11.3.sdk/
+          python3 ./scripts/generate-macos-app.py --plist data/Info.plist --icon data/icon.png --exe zig-out/bin/mv-widgets-${{matrix.target}} --out zig-out/mv-widgets-${{matrix.target}}.tar
 
       - name: Build (Linux)
         if: contains(matrix.target, 'linux')
         run: |
           zig build -Dfilename-suffix=${{matrix.target}} -Dcpu=x86_64 -Doptimize=ReleaseSafe
 
-      - uses: actions/upload-artifact@v3
+      - name: Artifacts (Linux/Windows)
+        uses: actions/upload-artifact@v3
+        if: not contains(matrix.target, 'macos')
         with:
           name: mv-widgets-${{ matrix.target }}
           path: |
             zig-out/bin
             !zig-out/bin/*.pdb
+
+      - name: Artifacts (MacOS)
+        uses: actions/upload-artifact@v3
+        if: not contains(matrix.target, 'macos')
+        with:
+          name: mv-widgets-${{ matrix.target }}
+          path: |
+            zig-out/mv-widgets-${{matrix.target}}.tar
 
   release:
     needs: [build]
