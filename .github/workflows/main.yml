@@ -57,7 +57,7 @@ jobs:
 
       - name: Artifacts (Linux/Windows)
         uses: actions/upload-artifact@v3
-        if: not contains(matrix.target, 'macos')
+        if: ${{ !contains(matrix.target, 'macos') }}
         with:
           name: mv-widgets-${{ matrix.target }}
           path: |
